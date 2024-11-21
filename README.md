@@ -27,5 +27,5 @@ pip install "fastapi[standard]"
 6. Run dev server using this command:
 
 ```shell
-fastapi run main.py
+fastapi run app/main.py
 ```
