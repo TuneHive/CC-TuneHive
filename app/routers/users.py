@@ -23,21 +23,21 @@ class UserUpdate(BaseModel):
   phone: str | None
 
 @router.get("/")
-async def getAllUsers():
+async def get_all_users():
   return "All users"
 
 @router.get("/{user_id}")
-async def getUser(user_id: str):
+async def get_user(user_id: str):
   return f"User with id {user_id}"
 
 @router.post("/")
-async def createUser(user: UserCreate):
+async def create_user(user: UserCreate):
   return user
 
 @router.put("/{user_id}")
-async def updateUser(user_id: str, user: UserUpdate):
+async def update_user(user_id: str, user: UserUpdate):
   return {user_id, user}
 
 @router.delete("/{user_id}")
-async def deleteUser(user_id: str):
+async def delete_user(user_id: str):
   return f"User with ID {user_id} was deleted"
