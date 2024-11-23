@@ -10,17 +10,17 @@ router = APIRouter(
 class UserCreate(BaseModel):
   fullname: Annotated[str, Field(min_length=3)]
   username: Annotated[str, Field(min_length=3)]
-  description: str | None
+  description: str | None = None
   email: EmailStr
-  phone: str | None
+  phone: str | None = None
   password: Annotated[str, Field(min_length=8)]
 
 class UserUpdate(BaseModel):
-  fullname: Annotated[str | None, Field(min_length=3)]
-  username: Annotated[str | None, Field(min_length=3)]
-  description: str | None
-  email: EmailStr | None
-  phone: str | None
+  fullname: Annotated[str | None, Field(min_length=3)] = None
+  username: Annotated[str | None, Field(min_length=3)] = None
+  description: str | None = None
+  email: EmailStr | None = None
+  phone: str | None = None
 
 @router.get("/")
 async def get_all_users():
