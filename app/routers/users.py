@@ -36,7 +36,7 @@ async def create_user(user: UserCreate):
 
 @router.put("/{user_id}")
 async def update_user(user_id: str, user: UserUpdate):
-  return {user_id, user}
+  return {"id": user_id, "user": user}
 
 @router.delete("/{user_id}")
 async def delete_user(user_id: str):
