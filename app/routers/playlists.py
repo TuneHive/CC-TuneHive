@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, Body
+from fastapi import APIRouter, Body
 from typing import Annotated
 
 router = APIRouter(
