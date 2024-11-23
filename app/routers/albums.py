@@ -17,7 +17,7 @@ async def get_album(album_id: str):
 @router.post("/")
 async def create_album(
   name: Annotated[str, Form(min_length=3)],
-  cover: Annotated[UploadFile, File(media_type="image")]
+  cover: Annotated[UploadFile, File()]
 ):
   # Tambahin authentication -> hanya pengguna yg login yg bisa buat album
   return {
@@ -29,7 +29,7 @@ async def create_album(
 async def update_album(
   album_id: str,
   name: Annotated[str | None, Form(min_length=3)] = None,
-  cover: Annotated[UploadFile | None, File(media_type="image")] = None
+  cover: Annotated[UploadFile | None, File()] = None
 ):
   return {"id": album_id, "album": {
     "name": name,
