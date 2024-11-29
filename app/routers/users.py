@@ -1,43 +1,101 @@
-from fastapi import APIRouter
-from pydantic import BaseModel, EmailStr, Field
+from fastapi import APIRouter, HTTPException, Query
+from pydantic import EmailStr
 from typing import Annotated
+from sqlmodel import SQLModel, Field, select
+from ..dependencies import SessionDep
+from datetime import datetime, timezone
 
-router = APIRouter(
-  prefix="/users",
-  tags=["users"]
-)
+router = APIRouter(prefix="/users", tags=["users"])
 
-class UserCreate(BaseModel):
-  fullname: Annotated[str, Field(min_length=3)]
-  username: Annotated[str, Field(min_length=3)]
-  description: str | None = None
-  email: EmailStr
-  phone: str | None = None
-  password: Annotated[str, Field(min_length=8)]
 
-class UserUpdate(BaseModel):
-  fullname: Annotated[str | None, Field(min_length=3)] = None
-  username: Annotated[str | None, Field(min_length=3)] = None
-  description: str | None = None
-  email: EmailStr | None = None
-  phone: str | None = None
+class Users(SQLModel, table=True):
+    id: int = Field(default=None, primary_key=True, index=True, nullable=False)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc), nullable=False
+    )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc), nullable=False
+    )
+    fullname: str
+    username: str
+    description: str | None = Field(default=None)
+    email: EmailStr = Field(unique=True)
+    phone: str | None = Field(default=None)
+    password: str
 
-@router.get("/")
-async def get_all_users():
-  return "All users"
 
-@router.get("/{user_id}")
-async def get_user(user_id: str):
-  return f"User with id {user_id}"
+class UserCreate(SQLModel):
+    fullname: Annotated[str, Field(min_length=3)]
+    username: Annotated[str, Field(min_length=3)]
+    description: str | None = None
+    email: EmailStr
+    phone: str | None = None
+    password: Annotated[str, Field(min_length=8)]
 
-@router.post("/")
-async def create_user(user: UserCreate):
-  return user
+
+class UserUpdate(SQLModel):
+    fullname: Annotated[str | None, Field(min_length=3)] = None
+    username: Annotated[str | None, Field(min_length=3)] = None
+    description: str | None = None
+    email: EmailStr | None = None
+    phone: str | None = None
+
+
+class UserPublic(SQLModel):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+    fullname: str
+    username: str
+    description: str | None = None
+    email: str
+    phone: str | None = None
+
+
+@router.get("/", response_model=list[UserPublic])
+async def get_all_users(
+    session: SessionDep, page: int = 1, itemPerPage: Annotated[int, Query(le=30)] = 10
+):
+    offset = page - 1
+    users = session.exec(select(Users).offset(offset).limit(itemPerPage)).all()
+    return users
+
+
+@router.get("/{user_id}", response_model=UserPublic)
+async def get_user(user_id: int, session: SessionDep):
+    user = session.get(Users, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+
+@router.post("/", response_model=UserPublic)
+async def create_user(user: UserCreate, session: SessionDep):
+    db_user = Users.model_validate(user)
+    session.add(db_user)
+    session.commit()
+    session.refresh(db_user)
+    return db_user
+
 
 @router.put("/{user_id}")
-async def update_user(user_id: str, user: UserUpdate):
-  return {"id": user_id, "user": user}
+async def update_user(user_id: int, user: UserUpdate, session: SessionDep):
+    user_db = session.get(Users, user_id)
+    if not user_db:
+        raise HTTPException(status_code=404, detail="User not found")
+    user_update_data = user.model_dump(exclude_unset=True)
+    user_db.sqlmodel_update(user_update_data)
+    session.add(user_db)
+    session.commit()
+    session.refresh(user_db)
+    return user_db
+
 
 @router.delete("/{user_id}")
-async def delete_user(user_id: str):
-  return f"User with ID {user_id} was deleted"
+async def delete_user(user_id: int, session: SessionDep):
+    user = session.get(Users, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    session.delete(user)
+    session.commit()
+    return user.id
