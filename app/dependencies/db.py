@@ -1,5 +1,5 @@
 from sqlmodel import create_engine, Session
-from .config import Config
+from ..config import Config
 from fastapi import Depends
 from typing import Annotated
 

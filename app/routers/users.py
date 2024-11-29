@@ -1,29 +1,12 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 from pydantic import EmailStr
 from typing import Annotated
 from sqlmodel import SQLModel, Field, select
-from ..dependencies import SessionDep
-from datetime import datetime, timezone
-from passlib.context import CryptContext
+from datetime import datetime
+from ..dependencies.db import SessionDep
+from ..dependencies.auth import Users, pwd_context, get_current_user
 
 router = APIRouter(prefix="/users", tags=["users"])
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-
-class Users(SQLModel, table=True):
-    id: int = Field(default=None, primary_key=True, index=True, nullable=False)
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc), nullable=False
-    )
-    updated_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc), nullable=False
-    )
-    fullname: str
-    username: str
-    description: str | None = Field(default=None)
-    email: EmailStr = Field(unique=True)
-    phone: str | None = Field(default=None)
-    password: str
 
 
 class UserCreate(SQLModel):
@@ -56,7 +39,9 @@ class UserPublic(SQLModel):
 
 @router.get("/", response_model=list[UserPublic])
 async def get_all_users(
-    session: SessionDep, page: int = 1, itemPerPage: Annotated[int, Query(le=30)] = 10
+    session: SessionDep,
+    page: Annotated[int, Query(ge=1)] = 1,
+    itemPerPage: Annotated[int, Query(ge=10, le=30)] = 10,
 ):
     offset = page - 1
     users = session.exec(select(Users).offset(offset).limit(itemPerPage)).all()
@@ -64,7 +49,13 @@ async def get_all_users(
 
 
 @router.get("/{user_id}", response_model=UserPublic)
-async def get_user(user_id: int, session: SessionDep):
+async def get_user(
+    user_id: int,
+    session: SessionDep,
+    current_user: Annotated[Users, Depends(get_current_user)],
+):
+    if user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Can not access other user data")
     user = session.get(Users, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -72,8 +63,14 @@ async def get_user(user_id: int, session: SessionDep):
 
 
 @router.post("/", response_model=UserPublic)
-async def create_user(user: UserCreate, session: SessionDep):
-    if session.exec(select(Users).where(Users.email == user.email)):
+async def create_user(
+    user: UserCreate,
+    session: SessionDep,
+):
+    existing_user = session.exec(
+        select(Users).where(Users.email == user.email)
+    ).one_or_none()
+    if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
     user.password = pwd_context.hash(user.password)
     db_user = Users.model_validate(user)
@@ -84,8 +81,18 @@ async def create_user(user: UserCreate, session: SessionDep):
 
 
 @router.put("/{user_id}")
-async def update_user(user_id: int, user: UserUpdate, session: SessionDep):
-    if session.exec(select(Users).where(Users.email == user.email)):
+async def update_user(
+    user_id: int,
+    user: UserUpdate,
+    session: SessionDep,
+    current_user: Annotated[Users, Depends(get_current_user)],
+):
+    if user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Can not change other user data")
+    existing_user = session.exec(
+        select(Users).where(Users.id != user_id, Users.email == user.email)
+    ).one_or_none()
+    if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
     user_db = session.get(Users, user_id)
     if not user_db:
@@ -99,7 +106,13 @@ async def update_user(user_id: int, user: UserUpdate, session: SessionDep):
 
 
 @router.delete("/{user_id}")
-async def delete_user(user_id: int, session: SessionDep):
+async def delete_user(
+    user_id: int,
+    session: SessionDep,
+    current_user: Annotated[Users, Depends(get_current_user)],
+):
+    if user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Can not delete other user")
     user = session.get(Users, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")

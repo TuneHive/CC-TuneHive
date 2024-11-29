@@ -7,5 +7,6 @@ class Config(BaseSettings):
     db_host: str
     db_post: str
     db_name: str
+    secret_key: str
 
     model_config = SettingsConfigDict(env_file=".env")
