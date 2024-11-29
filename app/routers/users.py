@@ -4,8 +4,10 @@ from typing import Annotated
 from sqlmodel import SQLModel, Field, select
 from ..dependencies import SessionDep
 from datetime import datetime, timezone
+from passlib.context import CryptContext
 
 router = APIRouter(prefix="/users", tags=["users"])
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 class Users(SQLModel, table=True):
@@ -71,6 +73,9 @@ async def get_user(user_id: int, session: SessionDep):
 
 @router.post("/", response_model=UserPublic)
 async def create_user(user: UserCreate, session: SessionDep):
+    if session.exec(select(Users).where(Users.email == user.email)):
+        raise HTTPException(status_code=400, detail="Email already registered")
+    user.password = pwd_context.hash(user.password)
     db_user = Users.model_validate(user)
     session.add(db_user)
     session.commit()
@@ -80,6 +85,8 @@ async def create_user(user: UserCreate, session: SessionDep):
 
 @router.put("/{user_id}")
 async def update_user(user_id: int, user: UserUpdate, session: SessionDep):
+    if session.exec(select(Users).where(Users.email == user.email)):
+        raise HTTPException(status_code=400, detail="Email already registered")
     user_db = session.get(Users, user_id)
     if not user_db:
         raise HTTPException(status_code=404, detail="User not found")
@@ -98,4 +105,4 @@ async def delete_user(user_id: int, session: SessionDep):
         raise HTTPException(status_code=404, detail="User not found")
     session.delete(user)
     session.commit()
-    return user.id
+    return user
