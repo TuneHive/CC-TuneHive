@@ -98,3 +98,6 @@ async def get_current_user(
     if user is None:
         raise credentials_exception
     return user
+
+
+CurrentUser = Annotated[Users, Depends(get_current_user)]

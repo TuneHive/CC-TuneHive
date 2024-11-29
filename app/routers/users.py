@@ -4,7 +4,7 @@ from typing import Annotated
 from sqlmodel import SQLModel, Field, select
 from datetime import datetime
 from ..dependencies.db import SessionDep
-from ..dependencies.auth import Users, pwd_context, get_current_user
+from ..dependencies.auth import Users, pwd_context, CurrentUser
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -52,7 +52,7 @@ async def get_all_users(
 async def get_user(
     user_id: int,
     session: SessionDep,
-    current_user: Annotated[Users, Depends(get_current_user)],
+    current_user: CurrentUser,
 ):
     if user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Can not access other user data")
@@ -85,7 +85,7 @@ async def update_user(
     user_id: int,
     user: UserUpdate,
     session: SessionDep,
-    current_user: Annotated[Users, Depends(get_current_user)],
+    current_user: CurrentUser,
 ):
     if user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Can not change other user data")
@@ -109,7 +109,7 @@ async def update_user(
 async def delete_user(
     user_id: int,
     session: SessionDep,
-    current_user: Annotated[Users, Depends(get_current_user)],
+    current_user: CurrentUser,
 ):
     if user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Can not delete other user")
