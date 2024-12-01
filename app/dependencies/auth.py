@@ -6,11 +6,12 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jwt.exceptions import InvalidTokenError
 from passlib.context import CryptContext
-from pydantic import BaseModel, EmailStr
-from sqlmodel import SQLModel, select, Field
+from pydantic import BaseModel
+from sqlmodel import select
 
 from ..config import Config
 from .db import SessionDep
+from ..models import Users
 
 # Read env variables
 config = Config()
@@ -27,22 +28,6 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     email: str | None = None
-
-
-class Users(SQLModel, table=True):
-    id: int = Field(default=None, primary_key=True, index=True, nullable=False)
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc), nullable=False
-    )
-    updated_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc), nullable=False
-    )
-    fullname: str
-    username: str
-    description: str | None = Field(default=None)
-    email: EmailStr = Field(unique=True)
-    phone: str | None = Field(default=None)
-    password: str
 
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")

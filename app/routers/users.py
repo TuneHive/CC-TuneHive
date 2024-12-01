@@ -1,10 +1,11 @@
-from fastapi import APIRouter, HTTPException, Query, Depends
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import EmailStr
 from typing import Annotated
 from sqlmodel import SQLModel, Field, select
 from datetime import datetime
 from ..dependencies.db import SessionDep
-from ..dependencies.auth import Users, pwd_context, CurrentUser
+from ..dependencies.auth import pwd_context, CurrentUser
+from ..models import Users
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -105,7 +106,7 @@ async def update_user(
     return user_db
 
 
-@router.delete("/{user_id}")
+@router.delete("/{user_id}", response_model=UserPublic)
 async def delete_user(
     user_id: int,
     session: SessionDep,
