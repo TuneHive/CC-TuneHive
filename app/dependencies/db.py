@@ -6,7 +6,7 @@ from typing import Annotated
 # Read env variables
 config = Config()
 
-connection_string = f"mysql+pymysql://{config.db_username}:{config.db_password}@{config.db_host}:{config.db_post}/{config.db_name}"
+connection_string = f"mysql+pymysql://{config.db_username}:{config.db_password}@{config.db_host}:{config.db_port}/{config.db_name}"
 connect_args = {"check_same_thread": False}
 
 engine = create_engine(connection_string)

@@ -31,6 +31,7 @@ class Albums(SQLModel, table=True):
     )
     name: str
     singer_id: int = Field(foreign_key="users.id")
+    cover: str
     cover_url: str
 
     singer: Users = Relationship(back_populates="albums")
