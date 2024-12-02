@@ -153,19 +153,20 @@ async def update_album(
                 content_type=cover.content_type,
                 if_generation_match=generation_match_precondition,
             )
+
+            coverToDelete = bucket.blob(album_db.cover)
+            coverToDelete.reload()
+            generation_match_precondition = coverToDelete.generation
+            coverToDelete.delete(if_generation_match=generation_match_precondition)
         except Exception as e:
             raise HTTPException(
                 status_code=500,
                 detail=f"An error occurred while uploading file: {str(e)}",
             )
+
         album = AlbumUpdate(name=name, cover=blob.name, cover_url=blob.public_url)
     else:
         album = AlbumUpdate(name=name)
-
-    coverToDelete = bucket.blob(album_db.cover)
-    coverToDelete.reload()
-    generation_match_precondition = coverToDelete.generation
-    coverToDelete.delete(if_generation_match=generation_match_precondition)
 
     album_update_data = album.model_dump(exclude_unset=True)
     album_db.sqlmodel_update(album_update_data)
