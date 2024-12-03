@@ -2,13 +2,12 @@ from fastapi import APIRouter, Form, UploadFile, File, Body, HTTPException, Quer
 from typing import Annotated
 from sqlmodel import SQLModel, select
 from datetime import datetime
-import random
-import string
 
 from ..models import Albums
 from ..dependencies.auth import CurrentUser
 from ..dependencies.db import SessionDep
 from ..dependencies.cloud_storage import BucketDep
+from ..bucket_functions import upload_file, delete_file
 
 router = APIRouter(prefix="/albums", tags=["albums"])
 
@@ -95,32 +94,23 @@ async def create_album(
         )
 
     try:
-        random_string = "".join(
-            random.choices(string.ascii_uppercase + string.digits, k=12)
-        )
+        blob_name, public_url = upload_file(bucket, current_user.id, cover)
 
-        filename = f"album_cover/{current_user.id}_{random_string}_{cover.filename}"
-        blob = bucket.blob(filename)
-
-        generation_match_precondition = 0
-        blob.upload_from_file(
-            cover.file,
-            content_type=cover.content_type,
-            if_generation_match=generation_match_precondition,
+        album = AlbumCreate(
+            name=name, singer_id=current_user.id, cover=blob_name, cover_url=public_url
         )
+        db_album = Albums.model_validate(album)
+        session.add(db_album)
+        session.commit()
+        session.refresh(db_album)
+
+        return db_album
     except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"An error occurred while uploading file: {str(e)}"
-        )
+        session.rollback()
+        if blob_name:
+            delete_file(bucket, blob_name)
 
-    album = AlbumCreate(
-        name=name, singer_id=current_user.id, cover=blob.name, cover_url=blob.public_url
-    )
-    db_album = Albums.model_validate(album)
-    session.add(db_album)
-    session.commit()
-    session.refresh(db_album)
-    return db_album
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
 
 @router.put("/{album_id}", response_model=AlbumPublic)
@@ -137,43 +127,42 @@ async def update_album(
         raise HTTPException(status_code=404, detail="Album not found")
     if album_db.singer_id != current_user.id:
         raise HTTPException(status_code=403, detail="Can not change other user data")
+    existing_album = session.exec(
+        select(Albums).where(Albums.name == name, Albums.singer_id == current_user.id)
+    ).one_or_none()
+    if existing_album:
+        raise HTTPException(
+            status_code=400,
+            detail="Album with the same name and singer has already been created",
+        )
 
-    if cover is not None:
-        try:
-            random_string = "".join(
-                random.choices(string.ascii_uppercase + string.digits, k=12)
-            )
+    try:
+        album = AlbumUpdate()
+        if cover is not None:
+            blob_name, public_url = upload_file(bucket, current_user.id, cover)
 
-            filename = f"album_cover/{current_user.id}_{random_string}_{cover.filename}"
-            blob = bucket.blob(filename)
+            delete_file(bucket, album_db.cover)
 
-            generation_match_precondition = 0
-            blob.upload_from_file(
-                cover.file,
-                content_type=cover.content_type,
-                if_generation_match=generation_match_precondition,
-            )
+            album.cover = blob_name
+            album.cover_url = public_url
+        if name is not None:
+            album.name = name
 
-            coverToDelete = bucket.blob(album_db.cover)
-            coverToDelete.reload()
-            generation_match_precondition = coverToDelete.generation
-            coverToDelete.delete(if_generation_match=generation_match_precondition)
-        except Exception as e:
-            raise HTTPException(
-                status_code=500,
-                detail=f"An error occurred while uploading file: {str(e)}",
-            )
+        album_update_data = album.model_dump(exclude_unset=True)
+        album_db.sqlmodel_update(album_update_data)
+        session.add(album_db)
+        session.commit()
+        session.refresh(album_db)
+        return album_db
+    except Exception as e:
+        session.rollback()
+        if blob_name:
+            delete_file(bucket, blob_name)
 
-        album = AlbumUpdate(name=name, cover=blob.name, cover_url=blob.public_url)
-    else:
-        album = AlbumUpdate(name=name)
-
-    album_update_data = album.model_dump(exclude_unset=True)
-    album_db.sqlmodel_update(album_update_data)
-    session.add(album_db)
-    session.commit()
-    session.refresh(album_db)
-    return album_db
+        raise HTTPException(
+            status_code=500,
+            detail=f"An error occurred: {str(e)}",
+        )
 
 
 @router.delete("/{album_id}", response_model=AlbumDelete)
@@ -186,14 +175,18 @@ async def delete_album(
     if album.singer_id != current_user.id:
         raise HTTPException(status_code=403, detail="Can not delete other user's album")
 
-    coverToDelete = bucket.blob(album.cover)
-    coverToDelete.reload()
-    generation_match_precondition = coverToDelete.generation
-    coverToDelete.delete(if_generation_match=generation_match_precondition)
+    try:
+        delete_file(bucket, album.cover)
 
-    session.delete(album)
-    session.commit()
-    return album
+        session.delete(album)
+        session.commit()
+        return album
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"An error occurred: {str(e)}",
+        )
 
 
 @router.post("/{album_id}/songs")
