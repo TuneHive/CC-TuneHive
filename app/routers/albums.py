@@ -84,6 +84,13 @@ async def create_album(
             detail=f"Invalid file type: {cover.content_type}. Allowed types: {', '.join(allowed_types)}",
         )
 
+    max_file_size = 1 * 1024 * 1024  # 1 MB in bytes
+    if cover.size > max_file_size:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File size exceeds the limit of 1 MB. Your file is {cover.size / (1024 * 1024):.2f} MB.",
+        )
+
     existing_album = session.exec(
         select(Albums).where(Albums.name == name, Albums.singer_id == current_user.id)
     ).one_or_none()
@@ -127,6 +134,21 @@ async def update_album(
         raise HTTPException(status_code=404, detail="Album not found")
     if album_db.singer_id != current_user.id:
         raise HTTPException(status_code=403, detail="Can not change other user data")
+
+    allowed_types = ["image/jpeg", "image/png"]
+    if cover.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid file type: {cover.content_type}. Allowed types: {', '.join(allowed_types)}",
+        )
+
+    max_file_size = 1 * 1024 * 1024  # 1 MB in bytes
+    if cover.size > max_file_size:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File size exceeds the limit of 1 MB. Your file is {cover.size / (1024 * 1024):.2f} MB.",
+        )
+
     existing_album = session.exec(
         select(Albums).where(Albums.name == name, Albums.singer_id == current_user.id)
     ).one_or_none()
