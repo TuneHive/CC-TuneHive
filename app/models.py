@@ -21,6 +21,9 @@ class Users(SQLModel, table=True):
     albums: list["Albums"] = Relationship(back_populates="singer", cascade_delete=True)
     posts: list["Posts"] = Relationship(back_populates="user", cascade_delete=True)
     liked_posts: list["Post_Likes"] = Relationship(back_populates="user")
+    comments: list["Comments"] = Relationship(
+        back_populates="user", cascade_delete=True
+    )
 
 
 class Albums(SQLModel, table=True):
@@ -54,6 +57,7 @@ class Posts(SQLModel, table=True):
 
     user: Users = Relationship(back_populates="posts")
     likes: list["Post_Likes"] = Relationship(back_populates="post")
+    comments: list["Comments"] = Relationship(back_populates="post")
 
 
 class Post_Likes(SQLModel, table=True):
@@ -62,3 +66,19 @@ class Post_Likes(SQLModel, table=True):
 
     user: Users = Relationship(back_populates="liked_posts")
     post: Posts = Relationship(back_populates="likes")
+
+
+class Comments(SQLModel, table=True):
+    id: int = Field(default=None, primary_key=True, index=True, nullable=False)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc), nullable=False
+    )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc), nullable=False
+    )
+    post_id: int = Field(foreign_key="posts.id")
+    user_id: int = Field(foreign_key="users.id")
+    content: str
+
+    post: Posts = Relationship(back_populates="comments")
+    user: Users = Relationship(back_populates="comments")
