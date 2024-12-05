@@ -46,8 +46,8 @@ class AlbumPublic(AlbumDelete):
 
 @router.get("/", response_model=list[AlbumPublic])
 async def get_all_albums(
-    user_id: int,
     session: SessionDep,
+    user_id: Annotated[int, Query(ge=1)] = 1,
     page: Annotated[int, Query(ge=1)] = 1,
     itemPerPage: Annotated[int, Query(ge=10, le=30)] = 10,
 ):
