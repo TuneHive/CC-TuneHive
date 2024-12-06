@@ -29,34 +29,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Step 2: Set up Python
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.x'
-
-      # Step 3: Install dependencies
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      # Step 4: Run export_docs.py
-      - name: Export API Docs
-        run: |
-          python export_docs.py
-
-      # Step 5: Configure GitHub Pages
+      # Step 2: Configure GitHub Pages
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
-      # Step 6: Upload artifact
+      # Step 3: Upload artifact
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: 'api-docs-my-project.html'
 
-      # Step 7: Deploy to GitHub Pages
+      # Step 4: Deploy to GitHub Pages
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
