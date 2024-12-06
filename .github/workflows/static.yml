@@ -37,7 +37,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: 'api-docs-my-project.html'
+          path: './api-docs-my-project.html'
 
       # Step 4: Deploy to GitHub Pages
       - name: Deploy to GitHub Pages
