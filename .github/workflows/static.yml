@@ -35,22 +35,28 @@ jobs:
         with:
           python-version: '3.x'
 
-      # Step 3: Run export_docs.py
+      # Step 3: Install dependencies
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install fastapi
+
+      # Step 4: Run export_docs.py
       - name: Export API Docs
         run: |
           python export_docs.py
 
-      # Step 4: Configure GitHub Pages
+      # Step 5: Configure GitHub Pages
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
-      # Step 5: Upload artifact
+      # Step 6: Upload artifact
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: 'api-docs-my-project.html'
 
-      # Step 6: Deploy to GitHub Pages
+      # Step 7: Deploy to GitHub Pages
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
