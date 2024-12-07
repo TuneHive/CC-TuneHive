@@ -3,7 +3,7 @@ from typing import Annotated
 from sqlmodel import SQLModel, select
 from datetime import datetime
 
-from ..models import Comments
+from ..models import Comments, Posts
 from ..dependencies.db import SessionDep
 from ..dependencies.auth import CurrentUser
 
@@ -38,10 +38,14 @@ async def get_all_comments(
     page: Annotated[int, Query(ge=1)] = 1,
     itemPerPage: Annotated[int, Query(ge=10, le=30)] = 10,
 ):
-    offset = page - 1
+    post = session.get(Posts, post_id)
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    offset = (page - 1) * itemPerPage
     comments = session.exec(
         select(Comments)
         .where(Comments.post_id == post_id)
+        .order_by(Comments.created_at.desc())
         .offset(offset)
         .limit(itemPerPage)
     ).all()
@@ -55,6 +59,9 @@ async def create_comment(
     session: SessionDep,
     current_user: CurrentUser,
 ):
+    post = session.get(Posts, post_id)
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
     comment = CommentCreate(content=content, post_id=post_id, user_id=current_user.id)
     db_comment = Comments.model_validate(comment)
     session.add(db_comment)
@@ -67,6 +74,9 @@ async def create_comment(
 async def delete_comment(
     post_id: int, comment_id: int, session: SessionDep, current_user: CurrentUser
 ):
+    post = session.get(Posts, post_id)
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
     comment = session.get(Comments, comment_id)
     if not comment:
         raise HTTPException(status_code=404, detail="Comment not found")

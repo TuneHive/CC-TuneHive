@@ -52,8 +52,10 @@ async def get_all_users(
     page: Annotated[int, Query(ge=1)] = 1,
     itemPerPage: Annotated[int, Query(ge=10, le=30)] = 10,
 ):
-    offset = page - 1
-    users = session.exec(select(Users).offset(offset).limit(itemPerPage)).all()
+    offset = (page - 1) * itemPerPage
+    users = session.exec(
+        select(Users).order_by(Users.id).offset(offset).limit(itemPerPage)
+    ).all()
     return users
 
 
