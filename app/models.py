@@ -24,6 +24,14 @@ class Users(SQLModel, table=True):
     comments: list["Comments"] = Relationship(
         back_populates="user", cascade_delete=True
     )
+    followers: list["Follows"] = Relationship(
+        back_populates="followed_user",
+        sa_relationship_kwargs={"foreign_keys": "Follows.user_id"},
+    )
+    followings: list["Follows"] = Relationship(
+        back_populates="follower_user",
+        sa_relationship_kwargs={"foreign_keys": "Follows.follower_id"},
+    )
 
 
 class Albums(SQLModel, table=True):
@@ -82,3 +90,17 @@ class Comments(SQLModel, table=True):
 
     post: Posts = Relationship(back_populates="comments")
     user: Users = Relationship(back_populates="comments")
+
+
+class Follows(SQLModel, table=True):
+    user_id: int = Field(foreign_key="users.id", primary_key=True, nullable=False)
+    follower_id: int = Field(foreign_key="users.id", primary_key=True, nullable=False)
+
+    followed_user: Users = Relationship(
+        back_populates="followers",
+        sa_relationship_kwargs={"foreign_keys": "[Follows.user_id]"},
+    )
+    follower_user: Users = Relationship(
+        back_populates="followings",
+        sa_relationship_kwargs={"foreign_keys": "[Follows.follower_id]"},
+    )

@@ -3,9 +3,10 @@ from pydantic import EmailStr
 from typing import Annotated
 from sqlmodel import SQLModel, Field, select
 from datetime import datetime
+
 from ..dependencies.db import SessionDep
 from ..dependencies.auth import pwd_context, CurrentUser
-from ..models import Users
+from ..models import Users, Follows
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -36,6 +37,13 @@ class UserPublic(SQLModel):
     description: str | None = None
     email: str
     phone: str | None = None
+
+
+class FollowerPublic(SQLModel):
+    id: int
+    fullname: str
+    username: str
+    email: str
 
 
 @router.get("/", response_model=list[UserPublic])
@@ -120,3 +128,50 @@ async def delete_user(
     session.delete(user)
     session.commit()
     return user
+
+
+@router.post("/follow/{user_id}", response_model=FollowerPublic)
+async def follow_user(user_id: int, session: SessionDep, current_user: CurrentUser):
+    if user_id == current_user.id:
+        raise HTTPException(status_code=400, detail="You can't follow your own account")
+    db_follows = Follows(user_id=user_id, follower_id=current_user.id)
+    session.add(db_follows)
+    session.commit()
+    session.refresh(db_follows)
+
+    return db_follows.followed_user
+
+
+@router.post("/unfollow/{user_id}")
+async def unfollow_user(user_id: int, session: SessionDep, current_user: CurrentUser):
+    if user_id == current_user.id:
+        raise HTTPException(
+            status_code=400, detail="You can't unfollow your own account"
+        )
+    follow = session.get(Follows, [user_id, current_user.id])
+    if not follow:
+        raise HTTPException(status_code=400, detail="You haven't followed this account")
+    session.delete(follow)
+    session.commit()
+    return {"detail": f"Successfully unfollowed user with id {user_id}"}
+
+
+@router.get("/{user_id}/followers", response_model=list[FollowerPublic])
+async def get_followers(
+    user_id: int,
+    session: SessionDep,
+    page: Annotated[int, Query(ge=1)] = 1,
+    itemPerPage: Annotated[int, Query(ge=10, le=30)] = 10,
+):
+    user = session.get(Users, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    offset = page - 1
+    followers = session.exec(
+        select(Follows)
+        .where(Follows.user_id == user_id)
+        .offset(offset)
+        .limit(itemPerPage)
+    ).all()
+    follower_users = [follow.follower_user for follow in followers]
+    return follower_users
