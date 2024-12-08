@@ -20,7 +20,9 @@ class Users(SQLModel, table=True):
 
     albums: list["Albums"] = Relationship(back_populates="singer", cascade_delete=True)
     songs: list["Songs"] = Relationship(back_populates="singer", cascade_delete=True)
-
+    posts: list["Posts"] = Relationship(back_populates="user")
+    liked_posts: list["Post_Likes"] = Relationship(back_populates="user")
+    comments: list["Comments"] = Relationship(back_populates="user")
 
 class Albums(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True, index=True, nullable=False)

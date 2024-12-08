@@ -4,12 +4,12 @@ import random
 import string
 
 
-def upload_file(bucket: storage.Bucket, user_id: str, file: UploadFile):
+def upload_file(bucket: storage.Bucket, user_id: str, file: UploadFile, folder_name: str):
     random_string = "".join(
         random.choices(string.ascii_uppercase + string.digits, k=12)
     )
 
-    filename = f"album_cover/{user_id}_{random_string}_{file.filename}"
+    filename = f"{folder_name}/{user_id}_{random_string}_{file.filename}"
     blob = bucket.blob(filename)
 
     generation_match_precondition = 0

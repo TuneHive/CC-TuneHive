@@ -86,11 +86,10 @@ async def get_song(song_id: int, session: SessionDep):
 @router.post("/", response_model=SongPublic)
 async def create_song(
     name: Annotated[str, Form(min_length=3)],
-    album_id: Annotated[int | None, Form()], 
+    album_id: Annotated[str | None, Form()],
     genre: Annotated[str, Form()],
     song: Annotated[UploadFile, File()],
     cover: Annotated[UploadFile, File()],
-    duration: Annotated[int, Form()],
     current_user: CurrentUser,
     session: SessionDep,
     bucket: BucketDep,
@@ -98,16 +97,22 @@ async def create_song(
     allowed_song_types = ["audio/mpeg", "audio/mp3", "audio/wav"]
     allowed_cover_types = ["image/jpeg", "image/png"]
 
-    if song.content_type not in allowed_song_types:
+    if song.content_type not in allowed_song_types and cover.content_type not in allowed_cover_types:
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid file type: {song.content_type}. Allowed types: {', '.join(allowed_song_types)}",
+            detail=f"Invalid file types: song - {song.content_type}, cover - {cover.content_type}. "
+                f"Allowed song types: {', '.join(allowed_song_types)}, "
+                f"Allowed cover types: {', '.join(allowed_cover_types)}",
         )
-    
-    if cover.content_type not in allowed_cover_types:
+    elif song.content_type not in allowed_song_types:
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid file type: {cover.content_type}. Allowed types: {', '.join(allowed_cover_types)}",
+            detail=f"Invalid song file type: {song.content_type}. Allowed types: {', '.join(allowed_song_types)}",
+        )
+    elif cover.content_type not in allowed_cover_types:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid cover file type: {cover.content_type}. Allowed types: {', '.join(allowed_cover_types)}",
         )
 
     existing_song = session.exec(
@@ -120,8 +125,10 @@ async def create_song(
         )
 
     try:
-        song_blob_name, song_public_url = upload_file(bucket, current_user.id, song)
-        cover_blob_name, cover_public_url = upload_file(bucket, current_user.id, cover)
+        folder_song = "song_file"
+        folder_cover = "song_cover"
+        song_blob_name, song_public_url = upload_file(bucket, current_user.id, song, folder_song)
+        cover_blob_name, cover_public_url = upload_file(bucket, current_user.id, cover, folder_cover)
 
         song_data = SongCreate(
             name=name,
@@ -136,7 +143,7 @@ async def create_song(
             instrumentalness=0,
             tempo=0,
             key='',
-            duration=duration,
+            duration=0,
             cover=cover_blob_name,
             cover_url=cover_public_url,
             song=song_blob_name,
@@ -172,15 +179,7 @@ async def update_song(
     if song_db.singer_id != current_user.id:
         raise HTTPException(status_code=403, detail="Cannot update another user's song")
     
-    allowed_song_types = ["audio/mpeg", "audio/mp3", "audio/wav"]
     allowed_cover_types = ["image/jpeg", "image/png"]
-
-    if song.content_type not in allowed_song_types:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid file type: {song.content_type}. Allowed types: {', '.join(allowed_song_types)}",
-        )
-    
     if cover.content_type not in allowed_cover_types:
         raise HTTPException(
             status_code=400,
@@ -197,9 +196,10 @@ async def update_song(
         )
 
     try:
+        folder_cover = "song_cover"
         song = SongUpdate()
         if cover is not None:
-            cover_blob_name, public_url = upload_file(bucket, current_user.id, cover)
+            cover_blob_name, public_url = upload_file(bucket, current_user.id, cover, folder_cover)
 
             delete_file(bucket, song.cover)
 
