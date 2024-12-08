@@ -42,14 +42,14 @@ async def get_all_albums(
     itemPerPage: Annotated[int, Query(ge=10, le=30)] = 10,
 ):
     offset = (page - 1) * itemPerPage
-    users = session.exec(
+    albums = session.exec(
         select(Albums)
         .where(Albums.singer_id == user_id)
         .order_by(Albums.created_at.desc())
         .offset(offset)
         .limit(itemPerPage)
     ).all()
-    return users
+    return albums
 
 
 @router.get("/{album_id}", response_model=DetailedAlbumPublic)

@@ -73,3 +73,18 @@ class SongPublic(SQLModel):
 class HistoryPublic(SQLModel):
     created_at: datetime
     song: SongPublic
+
+
+class PlaylistPublic(SQLModel):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+    name: str
+
+
+class DetailedPlaylistPublic(SQLModel):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+    name: str
+    songs: list[SongPublic]
