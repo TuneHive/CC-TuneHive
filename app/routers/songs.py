@@ -1,30 +1,32 @@
-from fastapi import APIRouter, Form, UploadFile, File, Body, HTTPException, Query
+from fastapi import APIRouter, Form, UploadFile, File, HTTPException, Query
 from typing import Annotated
 from sqlmodel import SQLModel, select
 from datetime import datetime
 
-from ..models import Songs
+from ..models import Songs, Song_Likes
 from ..dependencies.auth import CurrentUser
 from ..dependencies.db import SessionDep
 from ..dependencies.cloud_storage import BucketDep
 from ..bucket_functions import upload_file, delete_file
+from ..response_models import Response, AlbumPublic, UserPublic, SongPublic
 
 router = APIRouter(prefix="/songs", tags=["songs"])
+
 
 class SongCreate(SQLModel):
     name: str
     singer_id: int
     album_id: int
     likes: int
-    popularity: float 
-    genre: str 
-    danceability: float 
-    loudness: float 
-    acousticness: float 
+    popularity: float
+    genre: str
+    danceability: float
+    loudness: float
+    acousticness: float
     instrumentalness: float
-    tempo: float 
-    key: str 
-    duration: int 
+    tempo: float
+    key: str
+    duration: int
     cover: str
     cover_url: str
     song: str
@@ -38,24 +40,19 @@ class SongUpdate(SQLModel):
     cover_url: str | None = None
 
 
-class SongSinger(SQLModel):
-    id: int
-    fullname: str
-    username: str
-    email: str
-
-
 class SongDelete(SQLModel):
     id: int
     created_at: datetime
     updated_at: datetime
     name: str
-    singer: SongSinger
+    like_count: int
+    singer: UserPublic
+    album: AlbumPublic
 
 
-class SongPublic(SongDelete):
-    song_url: str
-    cover_url: str
+class SongLikeCreate(SQLModel):
+    user_id: int
+    song_id: int
 
 
 @router.get("/", response_model=list[SongPublic])
@@ -65,13 +62,14 @@ async def get_all_songs(
     page: Annotated[int, Query(ge=1)] = 1,
     itemPerPage: Annotated[int, Query(ge=10, le=30)] = 10,
 ):
-    offset = (page - 1)
+    offset = (page - 1) * itemPerPage
     songs = session.exec(
         select(Songs)
         .where(Songs.singer_id == user_id)
+        .order_by(Songs.created_at.desc())
         .offset(offset)
         .limit(itemPerPage)
-        ).all()
+    ).all()
     return songs
 
 
@@ -97,12 +95,15 @@ async def create_song(
     allowed_song_types = ["audio/mpeg", "audio/mp3", "audio/wav"]
     allowed_cover_types = ["image/jpeg", "image/png"]
 
-    if song.content_type not in allowed_song_types and cover.content_type not in allowed_cover_types:
+    if (
+        song.content_type not in allowed_song_types
+        and cover.content_type not in allowed_cover_types
+    ):
         raise HTTPException(
             status_code=400,
             detail=f"Invalid file types: song - {song.content_type}, cover - {cover.content_type}. "
-                f"Allowed song types: {', '.join(allowed_song_types)}, "
-                f"Allowed cover types: {', '.join(allowed_cover_types)}",
+            f"Allowed song types: {', '.join(allowed_song_types)}, "
+            f"Allowed cover types: {', '.join(allowed_cover_types)}",
         )
     elif song.content_type not in allowed_song_types:
         raise HTTPException(
@@ -127,8 +128,12 @@ async def create_song(
     try:
         folder_song = "song_file"
         folder_cover = "song_cover"
-        song_blob_name, song_public_url = upload_file(bucket, current_user.id, song, folder_song)
-        cover_blob_name, cover_public_url = upload_file(bucket, current_user.id, cover, folder_cover)
+        song_blob_name, song_public_url = upload_file(
+            bucket, current_user.id, song, folder_song
+        )
+        cover_blob_name, cover_public_url = upload_file(
+            bucket, current_user.id, cover, folder_cover
+        )
 
         song_data = SongCreate(
             name=name,
@@ -142,7 +147,7 @@ async def create_song(
             acousticness=0,
             instrumentalness=0,
             tempo=0,
-            key='',
+            key="",
             duration=0,
             cover=cover_blob_name,
             cover_url=cover_public_url,
@@ -178,7 +183,7 @@ async def update_song(
         raise HTTPException(status_code=404, detail="Song not found")
     if song_db.singer_id != current_user.id:
         raise HTTPException(status_code=403, detail="Cannot update another user's song")
-    
+
     allowed_cover_types = ["image/jpeg", "image/png"]
     if cover.content_type not in allowed_cover_types:
         raise HTTPException(
@@ -199,7 +204,9 @@ async def update_song(
         folder_cover = "song_cover"
         song = SongUpdate()
         if cover is not None:
-            cover_blob_name, public_url = upload_file(bucket, current_user.id, cover, folder_cover)
+            cover_blob_name, public_url = upload_file(
+                bucket, current_user.id, cover, folder_cover
+            )
 
             delete_file(bucket, song.cover)
 
@@ -219,8 +226,10 @@ async def update_song(
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
 
-@router.delete("/{song_id}", response_model=SongPublic)
-async def delete_song(song_id: int, session: SessionDep, current_user: CurrentUser, bucket: BucketDep):
+@router.delete("/{song_id}", response_model=SongDelete)
+async def delete_song(
+    song_id: int, session: SessionDep, current_user: CurrentUser, bucket: BucketDep
+):
     song_db = session.get(Songs, song_id)
     if not song_db:
         raise HTTPException(status_code=404, detail="Song not found")
@@ -238,3 +247,34 @@ async def delete_song(song_id: int, session: SessionDep, current_user: CurrentUs
     except Exception as e:
         session.rollback()
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
+
+@router.post("/{song_id}/like")
+async def like_or_unlike_song(
+    song_id: int, session: SessionDep, current_user: CurrentUser
+):
+    song = session.get(Songs, song_id)
+    if not song:
+        raise HTTPException(status_code=404, detail="Song not found")
+    already_liked = session.exec(
+        select(Song_Likes).where(
+            Song_Likes.user_id == current_user.id, Song_Likes.song_id == song_id
+        )
+    ).one_or_none()
+    if already_liked is not None:
+        session.delete(already_liked)
+        song.like_count -= 1
+        session.add(song)
+
+        session.commit()
+        return Response(detail=f"Successfully unliked song with id {song_id}")
+    else:
+        song_like = SongLikeCreate(user_id=current_user.id, song_id=song_id)
+        song_like_db = Song_Likes.model_validate(song_like)
+        session.add(song_like_db)
+
+        song.like_count += 1
+        session.add(song)
+
+        session.commit()
+        return Response(detail=f"Successfully liked song with id {song_id}")

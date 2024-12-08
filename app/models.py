@@ -34,6 +34,7 @@ class Users(SQLModel, table=True):
         sa_relationship_kwargs={"foreign_keys": "Follows.follower_id"},
     )
     histories: list["Histories"] = Relationship(back_populates="user")
+    liked_songs: list["Song_Likes"] = Relationship(back_populates="user")
 
 
 class Albums(SQLModel, table=True):
@@ -52,6 +53,7 @@ class Albums(SQLModel, table=True):
     singer: Users = Relationship(back_populates="albums")
     songs: list["Songs"] = Relationship(back_populates="album")
 
+
 class Songs(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True, index=True, nullable=False)
     created_at: datetime = Field(
@@ -63,23 +65,36 @@ class Songs(SQLModel, table=True):
     name: str
     singer_id: int = Field(foreign_key="users.id")
     album_id: int | None = Field(default=None, foreign_key="albums.id")
-    likes: int
-    popularity: float 
-    genre: str 
-    danceability: float 
-    loudness: float 
-    acousticness: float 
+    like_count: int
+    popularity: float
+    genre: str
+    danceability: float
+    loudness: float
+    acousticness: float
     instrumentalness: float
-    tempo: float 
-    key: str 
-    duration: int 
+    tempo: float
+    key: str
+    duration: int
     cover: str
     cover_url: str
     song: str
-    song_url: str 
+    song_url: str
 
     singer: Users = Relationship(back_populates="songs")
     album: Albums = Relationship(back_populates="songs")
+    likes: list["Song_Likes"] = Relationship(back_populates="song")
+
+
+class Song_Likes(SQLModel, table=True):
+    user_id: int = Field(foreign_key="users.id", primary_key=True, nullable=False)
+    song_id: int = Field(foreign_key="songs.id", primary_key=True, nullable=False)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc), nullable=False
+    )
+
+    user: Users = Relationship(back_populates="liked_songs")
+    song: Songs = Relationship(back_populates="likes")
+
 
 class Posts(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True, index=True, nullable=False)

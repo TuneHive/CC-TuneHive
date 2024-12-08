@@ -8,6 +8,7 @@ from ..dependencies.auth import CurrentUser
 from ..dependencies.db import SessionDep
 from ..dependencies.cloud_storage import BucketDep
 from ..bucket_functions import upload_file, delete_file
+from ..response_models import DetailedAlbumPublic, UserPublic
 
 router = APIRouter(prefix="/albums", tags=["albums"])
 
@@ -25,26 +26,15 @@ class AlbumUpdate(SQLModel):
     cover_url: str | None = None
 
 
-class AlbumSinger(SQLModel):
-    id: int
-    fullname: str
-    username: str
-    email: str
-
-
 class AlbumDelete(SQLModel):
     id: int
     created_at: datetime
     updated_at: datetime
     name: str
-    singer: AlbumSinger
+    singer: UserPublic
 
 
-class AlbumPublic(AlbumDelete):
-    cover_url: str
-
-
-@router.get("/", response_model=list[AlbumPublic])
+@router.get("/", response_model=list[DetailedAlbumPublic])
 async def get_all_albums(
     session: SessionDep,
     user_id: Annotated[int, Query(ge=1)],
@@ -62,7 +52,7 @@ async def get_all_albums(
     return users
 
 
-@router.get("/{album_id}", response_model=AlbumPublic)
+@router.get("/{album_id}", response_model=DetailedAlbumPublic)
 async def get_album(album_id: int, session: SessionDep):
     album = session.get(Albums, album_id)
     if not album:
@@ -70,7 +60,7 @@ async def get_album(album_id: int, session: SessionDep):
     return album
 
 
-@router.post("/", response_model=AlbumPublic)
+@router.post("/", response_model=DetailedAlbumPublic)
 async def create_album(
     name: Annotated[str, Form(min_length=3)],
     cover: Annotated[UploadFile, File()],
@@ -122,7 +112,7 @@ async def create_album(
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
 
-@router.put("/{album_id}", response_model=AlbumPublic)
+@router.put("/{album_id}", response_model=DetailedAlbumPublic)
 async def update_album(
     album_id: int,
     current_user: CurrentUser,
@@ -164,7 +154,9 @@ async def update_album(
         folder_name = "album_cover"
         album = AlbumUpdate()
         if cover is not None:
-            blob_name, public_url = upload_file(bucket, current_user.id, cover, folder_name)
+            blob_name, public_url = upload_file(
+                bucket, current_user.id, cover, folder_name
+            )
 
             delete_file(bucket, album_db.cover)
 

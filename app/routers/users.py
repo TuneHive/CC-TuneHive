@@ -2,11 +2,11 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import EmailStr
 from typing import Annotated
 from sqlmodel import SQLModel, Field, select
-from datetime import datetime
 
 from ..dependencies.db import SessionDep
 from ..dependencies.auth import pwd_context, CurrentUser
-from ..models import Users, Follows, Histories
+from ..models import Users, Follows, Histories, Song_Likes
+from ..response_models import Response, DetailedUserPublic, UserPublic, SongPublic
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -28,33 +28,6 @@ class UserUpdate(SQLModel):
     phone: str | None = None
 
 
-class UserPublic(SQLModel):
-    id: int
-    created_at: datetime
-    updated_at: datetime
-    fullname: str
-    username: str
-    description: str | None = None
-    email: str
-    phone: str | None = None
-
-
-class OtherUserPublic(SQLModel):
-    id: int
-    fullname: str
-    username: str
-    email: str
-
-
-class HistoryPublic(SQLModel):
-    id: int
-    name: str
-    singer: OtherUserPublic
-    album: int
-    cover_url: str
-    song_url: str
-
-
 @router.get("/", response_model=list[UserPublic])
 async def get_all_users(
     session: SessionDep,
@@ -68,7 +41,7 @@ async def get_all_users(
     return users
 
 
-@router.get("/details", response_model=UserPublic)
+@router.get("/details", response_model=DetailedUserPublic)
 async def get_user(
     session: SessionDep,
     current_user: CurrentUser,
@@ -79,7 +52,7 @@ async def get_user(
     return user
 
 
-@router.post("/", response_model=UserPublic)
+@router.post("/", response_model=DetailedUserPublic)
 async def create_user(
     user: UserCreate,
     session: SessionDep,
@@ -97,7 +70,7 @@ async def create_user(
     return db_user
 
 
-@router.put("/{user_id}")
+@router.put("/{user_id}", response_model=DetailedUserPublic)
 async def update_user(
     user_id: int,
     user: UserUpdate,
@@ -122,7 +95,7 @@ async def update_user(
     return user_db
 
 
-@router.delete("/{user_id}", response_model=UserPublic)
+@router.delete("/{user_id}", response_model=DetailedUserPublic)
 async def delete_user(
     user_id: int,
     session: SessionDep,
@@ -138,7 +111,7 @@ async def delete_user(
     return user
 
 
-@router.post("/follow/{user_id}", response_model=OtherUserPublic)
+@router.post("/follow/{user_id}")
 async def follow_user(user_id: int, session: SessionDep, current_user: CurrentUser):
     if user_id == current_user.id:
         raise HTTPException(status_code=400, detail="You can't follow your own account")
@@ -147,7 +120,7 @@ async def follow_user(user_id: int, session: SessionDep, current_user: CurrentUs
     session.commit()
     session.refresh(db_follows)
 
-    return db_follows.followed_user
+    return Response(detail=f"Successfully followed user with id {user_id}")
 
 
 @router.post("/unfollow/{user_id}")
@@ -161,10 +134,10 @@ async def unfollow_user(user_id: int, session: SessionDep, current_user: Current
         raise HTTPException(status_code=400, detail="You haven't followed this account")
     session.delete(follow)
     session.commit()
-    return {"detail": f"Successfully unfollowed user with id {user_id}"}
+    return Response(detail=f"Successfully followed user with id {user_id}")
 
 
-@router.get("/{user_id}/followers", response_model=list[OtherUserPublic])
+@router.get("/{user_id}/followers", response_model=list[UserPublic])
 async def get_followers(
     user_id: int,
     session: SessionDep,
@@ -186,7 +159,29 @@ async def get_followers(
     return follower_users
 
 
-@router.get("/{user_id}/history", response_model=HistoryPublic)
+@router.get("/{user_id}/liked_songs", response_model=list[SongPublic])
+async def get_liked_songs(
+    user_id: int,
+    session: SessionDep,
+    page: Annotated[int, Query(ge=1)] = 1,
+    itemPerPage: Annotated[int, Query(ge=10, le=30)] = 10,
+):
+    user = session.get(Users, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    offset = (page - 1) * itemPerPage
+    result = session.exec(
+        select(Song_Likes)
+        .where(Song_Likes.user_id == user_id)
+        .order_by(Song_Likes.created_at.desc())
+        .offset(offset)
+        .limit(itemPerPage)
+    ).all()
+    liked_songs = [song.song for song in result]
+    return liked_songs
+
+
+@router.get("/{user_id}/history", response_model=SongPublic)
 async def get_history(
     user_id: int,
     session: SessionDep,

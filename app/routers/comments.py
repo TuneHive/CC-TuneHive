@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Body, Query, HTTPException
 from typing import Annotated
 from sqlmodel import SQLModel, select
-from datetime import datetime
 
 from ..models import Comments, Posts
 from ..dependencies.db import SessionDep
 from ..dependencies.auth import CurrentUser
+from ..response_models import CommentPublic
 
 router = APIRouter(prefix="/posts/{post_id}/comments", tags=["posts"])
 
@@ -14,21 +14,6 @@ class CommentCreate(SQLModel):
     content: str
     post_id: int
     user_id: int
-
-
-class CommentPublisher(SQLModel):
-    id: int
-    fullname: str
-    username: str
-    email: str
-
-
-class CommentPublic(SQLModel):
-    id: int
-    created_at: datetime
-    updated_at: datetime
-    content: str
-    user: CommentPublisher
 
 
 @router.get("/", response_model=list[CommentPublic])

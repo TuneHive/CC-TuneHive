@@ -6,6 +6,7 @@ from datetime import datetime
 from ..models import Posts, Post_Likes
 from ..dependencies.db import SessionDep
 from ..dependencies.auth import CurrentUser
+from ..response_models import Response, PostPublic
 
 router = APIRouter(prefix="/posts", tags=["posts"])
 
@@ -16,31 +17,9 @@ class PostCreate(SQLModel):
     user_id: int
 
 
-class PostLikeCreate(SQLModel):
-    user_id: int
-    post_id: int
-
-
 class PostUpdate(SQLModel):
     title: str | None = None
     content: str | None = None
-
-
-class PostPublisher(SQLModel):
-    id: int
-    fullname: str
-    username: str
-    email: str
-
-
-class PostPublic(SQLModel):
-    id: int
-    created_at: datetime
-    updated_at: datetime
-    title: str
-    content: str
-    like_count: int
-    user: PostPublisher
 
 
 @router.get("/", response_model=list[PostPublic])
@@ -101,8 +80,10 @@ async def update_post(
     return post_db
 
 
-@router.put("/{post_id}/like", response_model=PostPublic)
-async def like_post(post_id: int, session: SessionDep, current_user: CurrentUser):
+@router.put("/{post_id}/like")
+async def like_or_unlike_post(
+    post_id: int, session: SessionDep, current_user: CurrentUser
+):
     post = session.get(Posts, post_id)
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
@@ -112,17 +93,21 @@ async def like_post(post_id: int, session: SessionDep, current_user: CurrentUser
         )
     ).one_or_none()
     if already_liked is not None:
-        raise HTTPException(status_code=400, detail="User has alerady liked the post")
-    post_like = PostLikeCreate(user_id=current_user.id, post_id=post_id)
-    db_like = Post_Likes.model_validate(post_like)
-    session.add(db_like)
+        session.delete(already_liked)
+        post.like_count -= 1
+        session.add(post)
 
-    post.like_count += 1
-    session.add(post)
+        session.commit()
+        return Response(detail=f"Successfully liked post with id {post_id}")
+    else:
+        post_like = Post_Likes(user_id=current_user.id, post_id=post_id)
+        session.add(post_like)
 
-    session.commit()
-    session.refresh(post)
-    return post
+        post.like_count += 1
+        session.add(post)
+
+        session.commit()
+        return Response(detail=f"Successfully liked post with id {post_id}")
 
 
 @router.delete("/{post_id}", response_model=PostPublic)
