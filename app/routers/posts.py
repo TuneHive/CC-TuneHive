@@ -46,13 +46,17 @@ class PostPublic(SQLModel):
 @router.get("/", response_model=list[PostPublic])
 async def get_all_posts(
     session: SessionDep,
-    user_id: Annotated[int, Query(ge=1)] = 1,
+    user_id: Annotated[int, Query(ge=1)],
     page: Annotated[int, Query(ge=1)] = 1,
     itemPerPage: Annotated[int, Query(ge=10, le=30)] = 10,
 ):
-    offset = page - 1
+    offset = (page - 1) * itemPerPage
     posts = session.exec(
-        select(Posts).where(Posts.user_id == user_id).offset(offset).limit(itemPerPage)
+        select(Posts)
+        .where(Posts.user_id == user_id)
+        .order_by(Posts.created_at.desc())
+        .offset(offset)
+        .limit(itemPerPage)
     ).all()
     return posts
 

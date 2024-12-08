@@ -47,14 +47,15 @@ class AlbumPublic(AlbumDelete):
 @router.get("/", response_model=list[AlbumPublic])
 async def get_all_albums(
     session: SessionDep,
-    user_id: Annotated[int, Query(ge=1)] = 1,
+    user_id: Annotated[int, Query(ge=1)],
     page: Annotated[int, Query(ge=1)] = 1,
     itemPerPage: Annotated[int, Query(ge=10, le=30)] = 10,
 ):
-    offset = page - 1
+    offset = (page - 1) * itemPerPage
     users = session.exec(
         select(Albums)
         .where(Albums.singer_id == user_id)
+        .order_by(Albums.created_at.desc())
         .offset(offset)
         .limit(itemPerPage)
     ).all()
