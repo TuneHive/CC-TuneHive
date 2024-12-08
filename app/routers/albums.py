@@ -102,7 +102,8 @@ async def create_album(
         )
 
     try:
-        blob_name, public_url = upload_file(bucket, current_user.id, cover)
+        folder_name = "album_cover"
+        blob_name, public_url = upload_file(bucket, current_user.id, cover, folder_name)
 
         album = AlbumCreate(
             name=name, singer_id=current_user.id, cover=blob_name, cover_url=public_url
@@ -160,9 +161,10 @@ async def update_album(
         )
 
     try:
+        folder_name = "album_cover"
         album = AlbumUpdate()
         if cover is not None:
-            blob_name, public_url = upload_file(bucket, current_user.id, cover)
+            blob_name, public_url = upload_file(bucket, current_user.id, cover, folder_name)
 
             delete_file(bucket, album_db.cover)
 

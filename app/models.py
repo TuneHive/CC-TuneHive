@@ -19,7 +19,8 @@ class Users(SQLModel, table=True):
     password: str
 
     albums: list["Albums"] = Relationship(back_populates="singer", cascade_delete=True)
-    posts: list["Posts"] = Relationship(back_populates="user", cascade_delete=True)
+    songs: list["Songs"] = Relationship(back_populates="singer", cascade_delete=True)
+    posts: list["Posts"] = Relationship(back_populates="user")
     liked_posts: list["Post_Likes"] = Relationship(back_populates="user")
     comments: list["Comments"] = Relationship(
         back_populates="user", cascade_delete=True
@@ -49,7 +50,36 @@ class Albums(SQLModel, table=True):
     cover_url: str
 
     singer: Users = Relationship(back_populates="albums")
+    songs: list["Songs"] = Relationship(back_populates="album")
 
+class Songs(SQLModel, table=True):
+    id: int = Field(default=None, primary_key=True, index=True, nullable=False)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc), nullable=False
+    )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc), nullable=False
+    )
+    name: str
+    singer_id: int = Field(foreign_key="users.id")
+    album_id: int | None = Field(default=None, foreign_key="albums.id")
+    likes: int
+    popularity: float 
+    genre: str 
+    danceability: float 
+    loudness: float 
+    acousticness: float 
+    instrumentalness: float
+    tempo: float 
+    key: str 
+    duration: int 
+    cover: str
+    cover_url: str
+    song: str
+    song_url: str 
+
+    singer: Users = Relationship(back_populates="songs")
+    album: Albums = Relationship(back_populates="songs")
 
 class Posts(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True, index=True, nullable=False)
