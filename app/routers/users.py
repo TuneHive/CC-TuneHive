@@ -6,7 +6,13 @@ from sqlmodel import SQLModel, Field, select
 from ..dependencies.db import SessionDep
 from ..dependencies.auth import pwd_context, CurrentUser
 from ..models import Users, Follows, Histories, Song_Likes
-from ..response_models import Response, DetailedUserPublic, UserPublic, SongPublic
+from ..response_models import (
+    Response,
+    DetailedUserPublic,
+    UserPublic,
+    SongPublic,
+    HistoryPublic,
+)
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -26,6 +32,11 @@ class UserUpdate(SQLModel):
     description: str | None = None
     email: EmailStr | None = None
     phone: str | None = None
+
+
+class HistoryCreate(SQLModel):
+    user_id: int
+    song_id: int
 
 
 @router.get("/", response_model=list[UserPublic])
@@ -181,7 +192,7 @@ async def get_liked_songs(
     return liked_songs
 
 
-@router.get("/{user_id}/history", response_model=SongPublic)
+@router.get("/{user_id}/history", response_model=list[HistoryPublic])
 async def get_history(
     user_id: int,
     session: SessionDep,
@@ -204,14 +215,17 @@ async def get_history(
         .offset(offset)
         .limit(itemPerPage)
     ).all()
-    history_songs = [item.song for item in history]
+    history_songs = [
+        {"song": item.song, "created_at": item.created_at} for item in history
+    ]
     return history_songs
 
 
 @router.post("/history/{song_id}")
 async def create_history(song_id: int, session: SessionDep, current_user: CurrentUser):
-    db_history = Histories(user_id=current_user.id, song_id=song_id)
+    history = HistoryCreate(user_id=current_user.id, song_id=song_id)
+    db_history = Histories.model_validate(history)
     session.add(db_history)
     session.commit()
 
-    return {"detail": f"Successfully added song with id {song_id} to history"}
+    return Response(detail=f"Successfully added song with id {song_id} to history")

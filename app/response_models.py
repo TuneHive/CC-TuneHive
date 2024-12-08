@@ -68,3 +68,8 @@ class SongPublic(SQLModel):
     album: AlbumPublic
     song_url: str
     cover_url: str
+
+
+class HistoryPublic(SQLModel):
+    created_at: datetime
+    song: SongPublic

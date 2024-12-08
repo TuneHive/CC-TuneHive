@@ -1,7 +1,6 @@
 from fastapi import APIRouter, HTTPException, Body, Query
 from typing import Annotated
 from sqlmodel import SQLModel, select
-from datetime import datetime
 
 from ..models import Posts, Post_Likes
 from ..dependencies.db import SessionDep

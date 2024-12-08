@@ -83,6 +83,7 @@ class Songs(SQLModel, table=True):
     singer: Users = Relationship(back_populates="songs")
     album: Albums = Relationship(back_populates="songs")
     likes: list["Song_Likes"] = Relationship(back_populates="song")
+    histories: list["Histories"] = Relationship(back_populates="song")
 
 
 class Song_Likes(SQLModel, table=True):
@@ -161,8 +162,7 @@ class Histories(SQLModel, table=True):
         default_factory=lambda: datetime.now(timezone.utc), nullable=False
     )
     user_id: int = Field(foreign_key="users.id")
-    # song_id: int = Field(foreign_key="songs.id")
-    song_id: int
+    song_id: int = Field(foreign_key="songs.id")
 
     user: Users = Relationship(back_populates="histories")
-    song: str  # TODO: buat jadi relationship
+    song: Songs = Relationship(back_populates="histories")
