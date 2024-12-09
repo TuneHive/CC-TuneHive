@@ -9,12 +9,9 @@ from passlib.context import CryptContext
 from pydantic import BaseModel
 from sqlmodel import select
 
-from ..config import Config
+from ..config import config
 from .db import SessionDep
 from ..models import Users
-
-# Read env variables
-config = Config()
 
 SECRET_KEY = config.secret_key
 ALGORITHM = "HS256"

@@ -1,13 +1,7 @@
 from google.cloud import storage
 from typing import Annotated
 from fastapi import Depends
-from ..config import Config
-import os
-
-config = Config()
-
-
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = config.google_application_credentials
+from ..config import config
 
 
 def get_bucket():
