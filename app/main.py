@@ -5,7 +5,8 @@ import os
 
 app = FastAPI()
 
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = config.google_application_credentials
+if config.google_application_credentials is not None:
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = config.google_application_credentials
 
 app.include_router(login.router)
 app.include_router(users.router)

@@ -10,7 +10,7 @@ def connect_with_connector():
     """
     Initializes a connection pool for a Cloud SQL instance of MySQL.
     """
-    instance_connection_name = config.connection_name
+    instance_connection_name = config.db_connection_name
     db_user = config.db_username
     db_pass = config.db_password
     db_name = config.db_name
