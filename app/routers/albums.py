@@ -1,14 +1,14 @@
-from fastapi import APIRouter, Form, UploadFile, File, Body, HTTPException, Query
+from fastapi import APIRouter, Form, UploadFile, File, HTTPException, Query
 from typing import Annotated
 from sqlmodel import SQLModel, select
 from datetime import datetime
 
-from ..models import Albums
+from ..models import Albums, Songs
 from ..dependencies.auth import CurrentUser
 from ..dependencies.db import SessionDep
 from ..dependencies.cloud_storage import BucketDep
 from ..bucket_functions import upload_file, delete_file
-from ..response_models import DetailedAlbumPublic, UserPublic
+from ..response_models import DetailedAlbumPublic, UserPublic, AlbumPublic
 
 router = APIRouter(prefix="/albums", tags=["albums"])
 
@@ -34,7 +34,7 @@ class AlbumDelete(SQLModel):
     singer: UserPublic
 
 
-@router.get("/", response_model=list[DetailedAlbumPublic])
+@router.get("/", response_model=list[AlbumPublic])
 async def get_all_albums(
     session: SessionDep,
     user_id: Annotated[int, Query(ge=1)],
@@ -206,11 +206,57 @@ async def delete_album(
         )
 
 
-@router.post("/{album_id}/songs")
-async def add_song_to_album(album_id: int, song_id: Annotated[int, Body()]):
-    return f"Song with id {song_id} has been added to album with ID {album_id}"
+@router.post("/{album_id}/songs/{song_id}", response_model=DetailedAlbumPublic)
+async def add_song_to_album(
+    album_id: int, song_id: int, session: SessionDep, current_user: CurrentUser
+):
+    album = session.get(Albums, album_id)
+    if not album:
+        raise HTTPException(status_code=404, detail="Album not found")
+    if album.singer_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Can not change other user's album")
+    song = session.get(Songs, song_id)
+    if not song:
+        raise HTTPException(status_code=404, detail="Song not found")
+    if song.singer_id != current_user.id:
+        raise HTTPException(
+            status_code=403, detail="Can not add other user's song other your album"
+        )
+    if song.album_id == album_id:
+        raise HTTPException(
+            status_code=400, detail="Song has been added to this album before"
+        )
+    if song.album_id is not None:
+        raise HTTPException(
+            status_code=400,
+            detail="Song has been added to other album. Please remove the song from other album",
+        )
+    song.album_id = album_id
+    session.add(song)
+    session.commit()
+    session.refresh(album)
+    return album
 
 
-@router.delete("/{album_id}/songs/{song_id}")
-async def remove_song_from_album(album_id: int, song_id: int):
-    return f"Song with id {song_id} has been removed from album with ID {album_id}"
+@router.delete("/{album_id}/songs/{song_id}", response_model=DetailedAlbumPublic)
+async def remove_song_from_album(
+    album_id: int, song_id: int, session: SessionDep, current_user: CurrentUser
+):
+    album = session.get(Albums, album_id)
+    if not album:
+        raise HTTPException(status_code=404, detail="Album not found")
+    if album.singer_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Can not change other user's album")
+    song = session.get(Songs, song_id)
+    if not song:
+        raise HTTPException(status_code=404, detail="Song not found")
+    if song.album_id is None or song.album_id != album_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Song has not been added to this album",
+        )
+    song.album_id = None
+    session.add(song)
+    session.commit()
+    session.refresh(album)
+    return album

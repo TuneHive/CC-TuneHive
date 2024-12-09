@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Form, UploadFile, File, HTTPException, Query
 from typing import Annotated
-from sqlmodel import SQLModel, select
+from sqlmodel import SQLModel, select, col
 from datetime import datetime
 
-from ..models import Songs, Song_Likes
+from ..models import Songs, Song_Likes, Users, Albums
 from ..dependencies.auth import CurrentUser
 from ..dependencies.db import SessionDep
 from ..dependencies.cloud_storage import BucketDep
@@ -17,7 +17,7 @@ class SongCreate(SQLModel):
     name: str
     singer_id: int
     album_id: int
-    likes: int
+    like_count: int
     popularity: float
     genre: str
     danceability: float
@@ -57,19 +57,36 @@ class SongLikeCreate(SQLModel):
 
 @router.get("/", response_model=list[SongPublic])
 async def get_all_songs(
-    user_id: int,
     session: SessionDep,
     page: Annotated[int, Query(ge=1)] = 1,
     itemPerPage: Annotated[int, Query(ge=10, le=30)] = 10,
+    user_id: int | None = None,
+    name: str | None = None,
+    singer: str | None = None,
+    album: str | None = None,
 ):
     offset = (page - 1) * itemPerPage
-    songs = session.exec(
+    query = (
         select(Songs)
-        .where(Songs.singer_id == user_id)
+        .join(Albums, Songs.album_id == Albums.id)
+        .join(Users, Songs.singer_id == Users.id)
         .order_by(Songs.created_at.desc())
-        .offset(offset)
-        .limit(itemPerPage)
-    ).all()
+    )
+
+    if user_id is not None:
+        query = query.where(Songs.singer_id == user_id)
+
+    if name is not None:
+        query = query.where(col(Songs.name).contains(name))
+
+    if singer is not None:
+        query = query.where(col(Users.username).contains(singer))
+
+    if album is not None:
+        query = query.where(col(Albums.name).contains(album))
+
+    songs = session.exec(query.offset(offset).limit(itemPerPage)).all()
+
     return songs
 
 
@@ -84,7 +101,7 @@ async def get_song(song_id: int, session: SessionDep):
 @router.post("/", response_model=SongPublic)
 async def create_song(
     name: Annotated[str, Form(min_length=3)],
-    album_id: Annotated[str | None, Form()],
+    album_id: Annotated[int | None, Form()],
     genre: Annotated[str, Form()],
     song: Annotated[UploadFile, File()],
     cover: Annotated[UploadFile, File()],
@@ -139,7 +156,7 @@ async def create_song(
             name=name,
             singer_id=current_user.id,
             album_id=album_id,
-            likes=0,
+            like_count=0,
             popularity=0,
             genre=genre,
             danceability=0,
