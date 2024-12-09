@@ -39,6 +39,11 @@ class HistoryCreate(SQLModel):
     song_id: int
 
 
+class FollowCreate(SQLModel):
+    user_id: int
+    follower_id: int
+
+
 @router.get("/", response_model=list[UserPublic])
 async def get_all_users(
     session: SessionDep,
@@ -126,7 +131,8 @@ async def delete_user(
 async def follow_user(user_id: int, session: SessionDep, current_user: CurrentUser):
     if user_id == current_user.id:
         raise HTTPException(status_code=400, detail="You can't follow your own account")
-    db_follows = Follows(user_id=user_id, follower_id=current_user.id)
+    follow = FollowCreate(user_id=user_id, follower_id=current_user.id)
+    db_follows = Follows.model_validate(follow)
     session.add(db_follows)
     session.commit()
     session.refresh(db_follows)
@@ -168,6 +174,28 @@ async def get_followers(
     ).all()
     follower_users = [follow.follower_user for follow in followers]
     return follower_users
+
+
+@router.get("/{user_id}/followings", response_model=list[UserPublic])
+async def get_followings(
+    user_id: int,
+    session: SessionDep,
+    page: Annotated[int, Query(ge=1)] = 1,
+    itemPerPage: Annotated[int, Query(ge=10, le=30)] = 10,
+):
+    user = session.get(Users, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    offset = (page - 1) * itemPerPage
+    followings = session.exec(
+        select(Follows)
+        .where(Follows.follower_id == user_id)
+        .order_by(Follows.created_at.desc())
+        .offset(offset)
+        .limit(itemPerPage)
+    ).all()
+    following_users = [follow.followed_user for follow in followings]
+    return following_users
 
 
 @router.get("/{user_id}/liked_songs", response_model=list[SongPublic])
