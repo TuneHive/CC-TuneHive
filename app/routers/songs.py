@@ -10,6 +10,7 @@ from ..dependencies.db import SessionDep
 from ..dependencies.cloud_storage import BucketDep
 from ..bucket_functions import upload_file, delete_file
 from ..response_models import Response, AlbumPublic, UserPublic, SongPublic
+from ..calculate_popularity import calculate_song_popularity
 
 router = APIRouter(prefix="/songs", tags=["songs"])
 
@@ -64,13 +65,13 @@ async def get_all_songs(
     name: str | None = None,
     singer: str | None = None,
     album: str | None = None,
+    top: bool | None = None,
 ):
     offset = (page - 1) * itemPerPage
     query = (
         select(Songs)
-        .join(Albums, Songs.album_id == Albums.id)
+        .join(Albums, Songs.album_id == Albums.id, isouter=True)
         .join(Users, Songs.singer_id == Users.id)
-        .order_by(Songs.created_at.desc())
     )
 
     if user_id is not None:
@@ -84,6 +85,11 @@ async def get_all_songs(
 
     if album is not None:
         query = query.where(col(Albums.name).contains(album))
+
+    if top is not None or top is False:
+        query = query.order_by(Songs.popularity.desc())
+    else:
+        query = query.order_by(Songs.created_at.desc())
 
     songs = session.exec(query.offset(offset).limit(itemPerPage)).all()
 
@@ -287,6 +293,9 @@ async def like_or_unlike_song(
         session.add(song)
 
         session.commit()
+
+        calculate_song_popularity(session, song)
+
         return Response(detail=f"Successfully unliked song with id {song_id}")
     else:
         song_like = SongLikeCreate(user_id=current_user.id, song_id=song_id)
@@ -297,4 +306,7 @@ async def like_or_unlike_song(
         session.add(song)
 
         session.commit()
+
+        calculate_song_popularity(session, song)
+
         return Response(detail=f"Successfully liked song with id {song_id}")

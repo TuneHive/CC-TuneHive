@@ -5,7 +5,7 @@ from sqlmodel import SQLModel, Field, select
 
 from ..dependencies.db import SessionDep
 from ..dependencies.auth import pwd_context, CurrentUser
-from ..models import Users, Follows, Histories, Song_Likes
+from ..models import Users, Follows, Histories, Song_Likes, Songs
 from ..response_models import (
     Response,
     DetailedUserPublic,
@@ -13,6 +13,7 @@ from ..response_models import (
     SongPublic,
     HistoryPublic,
 )
+from ..calculate_popularity import calculate_song_popularity
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -271,9 +272,14 @@ async def get_history(
 
 @router.post("/history/{song_id}")
 async def create_history(song_id: int, session: SessionDep, current_user: CurrentUser):
+    song = session.get(Songs, song_id)
+    if not song:
+        raise HTTPException(status_code=404, detail="Song not found")
     history = HistoryCreate(user_id=current_user.id, song_id=song_id)
     db_history = Histories.model_validate(history)
     session.add(db_history)
     session.commit()
+
+    calculate_song_popularity(session, song)
 
     return Response(detail=f"Successfully added song with id {song_id} to history")
