@@ -38,7 +38,7 @@ class SongPublic(SQLModel):
     name: str
     like_count: int
     singer: UserPublic
-    album: AlbumPublic
+    album: AlbumPublic | None = None
     song_url: str
     cover_url: str
 

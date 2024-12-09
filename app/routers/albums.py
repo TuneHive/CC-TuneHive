@@ -128,7 +128,7 @@ async def update_album(
         raise HTTPException(status_code=403, detail="Can not change other user data")
 
     allowed_types = ["image/jpeg", "image/png"]
-    if cover.content_type not in allowed_types:
+    if cover is not None and cover.content_type not in allowed_types:
         raise HTTPException(
             status_code=400,
             detail=f"Invalid file type: {cover.content_type}. Allowed types: {', '.join(allowed_types)}",

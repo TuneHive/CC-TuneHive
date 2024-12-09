@@ -2,6 +2,7 @@ from fastapi import APIRouter, Form, UploadFile, File, HTTPException, Query
 from typing import Annotated
 from sqlmodel import SQLModel, select, col
 from datetime import datetime
+from sqlalchemy.orm import selectinload
 
 from ..models import Songs, Song_Likes, Users, Albums
 from ..dependencies.auth import CurrentUser
@@ -16,7 +17,7 @@ router = APIRouter(prefix="/songs", tags=["songs"])
 class SongCreate(SQLModel):
     name: str
     singer_id: int
-    album_id: int
+    album_id: int | None = None
     like_count: int
     popularity: float
     genre: str
@@ -47,7 +48,7 @@ class SongDelete(SQLModel):
     name: str
     like_count: int
     singer: UserPublic
-    album: AlbumPublic
+    album: AlbumPublic | None = None
 
 
 class SongLikeCreate(SQLModel):
@@ -101,13 +102,13 @@ async def get_song(song_id: int, session: SessionDep):
 @router.post("/", response_model=SongPublic)
 async def create_song(
     name: Annotated[str, Form(min_length=3)],
-    album_id: Annotated[int | None, Form()],
     genre: Annotated[str, Form()],
     song: Annotated[UploadFile, File()],
     cover: Annotated[UploadFile, File()],
     current_user: CurrentUser,
     session: SessionDep,
     bucket: BucketDep,
+    album_id: Annotated[int | None, Form()] = None,
 ):
     allowed_song_types = ["audio/mpeg", "audio/mp3", "audio/wav"]
     allowed_cover_types = ["image/jpeg", "image/png"]
@@ -155,7 +156,6 @@ async def create_song(
         song_data = SongCreate(
             name=name,
             singer_id=current_user.id,
-            album_id=album_id,
             like_count=0,
             popularity=0,
             genre=genre,
@@ -171,6 +171,10 @@ async def create_song(
             song=song_blob_name,
             song_url=song_public_url,
         )
+
+        if album_id is not None:
+            song_data.album_id = album_id
+
         db_song = Songs.model_validate(song_data)
         session.add(db_song)
         session.commit()
@@ -202,7 +206,7 @@ async def update_song(
         raise HTTPException(status_code=403, detail="Cannot update another user's song")
 
     allowed_cover_types = ["image/jpeg", "image/png"]
-    if cover.content_type not in allowed_cover_types:
+    if cover is not None and cover.content_type not in allowed_cover_types:
         raise HTTPException(
             status_code=400,
             detail=f"Invalid file type: {cover.content_type}. Allowed types: {', '.join(allowed_cover_types)}",
@@ -247,16 +251,17 @@ async def update_song(
 async def delete_song(
     song_id: int, session: SessionDep, current_user: CurrentUser, bucket: BucketDep
 ):
-    song_db = session.get(Songs, song_id)
+    song_db = session.get(
+        Songs, song_id, options=[selectinload(Songs.singer), selectinload(Songs.album)]
+    )
     if not song_db:
         raise HTTPException(status_code=404, detail="Song not found")
     if song_db.singer_id != current_user.id:
         raise HTTPException(status_code=403, detail="Cannot delete another user's song")
 
     try:
-        delete_file(bucket, song_db.song_url)
-        if song_db.cover_url:
-            delete_file(bucket, song_db.cover_url)
+        delete_file(bucket, song_db.song)
+        delete_file(bucket, song_db.cover)
 
         session.delete(song_db)
         session.commit()
