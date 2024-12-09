@@ -17,6 +17,8 @@ class Users(SQLModel, table=True):
     email: EmailStr = Field(unique=True)
     phone: str | None = Field(default=None)
     password: str
+    follower_count: int = Field(default=0)
+    following_count: int = Field(default=0)
 
     albums: list["Albums"] = Relationship(back_populates="singer", cascade_delete=True)
     songs: list["Songs"] = Relationship(back_populates="singer", cascade_delete=True)
@@ -74,7 +76,7 @@ class Songs(SQLModel, table=True):
     name: str
     singer_id: int = Field(foreign_key="users.id")
     album_id: int | None = Field(default=None, foreign_key="albums.id")
-    like_count: int
+    like_count: int = Field(default=0)
     popularity: float
     genre: str
     danceability: float

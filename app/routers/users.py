@@ -129,19 +129,31 @@ async def delete_user(
 
 @router.post("/follow/{user_id}")
 async def follow_user(user_id: int, session: SessionDep, current_user: CurrentUser):
+    user = session.get(Users, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
     if user_id == current_user.id:
         raise HTTPException(status_code=400, detail="You can't follow your own account")
     follow = FollowCreate(user_id=user_id, follower_id=current_user.id)
     db_follows = Follows.model_validate(follow)
     session.add(db_follows)
-    session.commit()
-    session.refresh(db_follows)
 
+    current_user_db = session.get(Users, current_user.id)
+    current_user_db.following_count += 1
+    session.add(current_user_db)
+
+    user.follower_count += 1
+    session.add(user)
+
+    session.commit()
     return Response(detail=f"Successfully followed user with id {user_id}")
 
 
 @router.post("/unfollow/{user_id}")
 async def unfollow_user(user_id: int, session: SessionDep, current_user: CurrentUser):
+    user = session.get(Users, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
     if user_id == current_user.id:
         raise HTTPException(
             status_code=400, detail="You can't unfollow your own account"
@@ -150,8 +162,16 @@ async def unfollow_user(user_id: int, session: SessionDep, current_user: Current
     if not follow:
         raise HTTPException(status_code=400, detail="You haven't followed this account")
     session.delete(follow)
+
+    current_user_db = session.get(Users, current_user.id)
+    current_user_db.following_count -= 1
+    session.add(current_user_db)
+
+    user.follower_count -= 1
+    session.add(user)
+
     session.commit()
-    return Response(detail=f"Successfully followed user with id {user_id}")
+    return Response(detail=f"Successfully unfollowed user with id {user_id}")
 
 
 @router.get("/{user_id}/followers", response_model=list[UserPublic])

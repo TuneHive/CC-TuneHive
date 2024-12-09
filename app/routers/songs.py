@@ -18,7 +18,6 @@ class SongCreate(SQLModel):
     name: str
     singer_id: int
     album_id: int | None = None
-    like_count: int
     popularity: float
     genre: str
     danceability: float
@@ -156,7 +155,6 @@ async def create_song(
         song_data = SongCreate(
             name=name,
             singer_id=current_user.id,
-            like_count=0,
             popularity=0,
             genre=genre,
             danceability=0,

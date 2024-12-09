@@ -16,6 +16,8 @@ class DetailedUserPublic(SQLModel):
     description: str | None = None
     email: str
     phone: str | None = None
+    follower_count: int
+    following_count: int
 
 
 class UserPublic(SQLModel):
