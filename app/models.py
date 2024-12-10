@@ -22,8 +22,10 @@ class Users(SQLModel, table=True):
 
     albums: list["Albums"] = Relationship(back_populates="singer", cascade_delete=True)
     songs: list["Songs"] = Relationship(back_populates="singer", cascade_delete=True)
-    posts: list["Posts"] = Relationship(back_populates="user")
-    liked_posts: list["Post_Likes"] = Relationship(back_populates="user")
+    posts: list["Posts"] = Relationship(back_populates="user", cascade_delete=True)
+    liked_posts: list["Post_Likes"] = Relationship(
+        back_populates="user", cascade_delete=True
+    )
     comments: list["Comments"] = Relationship(
         back_populates="user", cascade_delete=True
     )
@@ -46,6 +48,11 @@ class Users(SQLModel, table=True):
     playlists: list["Playlists"] = Relationship(
         back_populates="user", cascade_delete=True
     )
+
+
+class Blacklist_Tokens(SQLModel, table=True):
+    token: str = Field(primary_key=True, index=True, nullable=False)
+    expires_at: datetime
 
 
 class Albums(SQLModel, table=True):
