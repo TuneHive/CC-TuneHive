@@ -252,9 +252,7 @@ async def update_song(
 
 
 @router.delete("/{song_id}", response_model=SongDelete)
-async def delete_song(
-    song_id: int, session: SessionDep, current_user: CurrentUser, bucket: BucketDep
-):
+async def delete_song(song_id: int, session: SessionDep, current_user: CurrentUser):
     song_db = session.get(
         Songs, song_id, options=[selectinload(Songs.singer), selectinload(Songs.album)]
     )
@@ -264,9 +262,6 @@ async def delete_song(
         raise HTTPException(status_code=403, detail="Cannot delete another user's song")
 
     try:
-        delete_file(bucket, song_db.song)
-        delete_file(bucket, song_db.cover)
-
         session.delete(song_db)
         session.commit()
         return song_db

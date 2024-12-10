@@ -1,6 +1,12 @@
 from sqlmodel import SQLModel, Field, Relationship
 from datetime import datetime, timezone
 from pydantic import EmailStr
+from sqlalchemy import event
+
+from .dependencies.cloud_storage import get_bucket
+from .bucket_functions import delete_file
+
+bucket = get_bucket()
 
 
 class Users(SQLModel, table=True):
@@ -72,6 +78,13 @@ class Albums(SQLModel, table=True):
     songs: list["Songs"] = Relationship(back_populates="album", cascade_delete=True)
 
 
+event.listen(
+    Albums,
+    "after_delete",
+    lambda mapper, connection, target: delete_file(bucket, target.cover),
+)
+
+
 class Songs(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True, index=True, nullable=False)
     created_at: datetime = Field(
@@ -107,6 +120,16 @@ class Songs(SQLModel, table=True):
     playlists: list["Playlist_Songs"] = Relationship(
         back_populates="song", cascade_delete=True
     )
+
+
+event.listen(
+    Songs,
+    "after_delete",
+    lambda mapper, connection, target: (
+        delete_file(bucket, target.cover),
+        delete_file(bucket, target.song),
+    ),
+)
 
 
 class Song_Likes(SQLModel, table=True):

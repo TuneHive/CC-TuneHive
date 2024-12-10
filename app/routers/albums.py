@@ -183,9 +183,7 @@ async def update_album(
 
 
 @router.delete("/{album_id}", response_model=AlbumDelete)
-async def delete_album(
-    album_id: int, session: SessionDep, current_user: CurrentUser, bucket: BucketDep
-):
+async def delete_album(album_id: int, session: SessionDep, current_user: CurrentUser):
     album = session.get(Albums, album_id)
     if not album:
         raise HTTPException(status_code=404, detail="Album not found")
@@ -193,8 +191,6 @@ async def delete_album(
         raise HTTPException(status_code=403, detail="Can not delete other user's album")
 
     try:
-        delete_file(bucket, album.cover)
-
         session.delete(album)
         session.commit()
         return album
