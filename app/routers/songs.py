@@ -148,6 +148,14 @@ async def create_song(
             detail="Song with the same name and singer has already been created",
         )
 
+    if album_id is not None:
+        album = session.get(Albums, album_id)
+        if not album:
+            raise HTTPException(
+                status_code=404,
+                detail="Album not found",
+            )
+
     try:
         folder_song = "song_file"
         folder_cover = "song_cover"
