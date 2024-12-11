@@ -8,7 +8,7 @@ class Config(BaseSettings):
     db_connection_name: str
     secret_key: str
     bucket_name: str
-    google_application_credentials: str | None
+    google_application_credentials: str | None = None
 
     class Config:
         env_file = ".env"  # Optional, for local development
