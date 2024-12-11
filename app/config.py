@@ -1,4 +1,4 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings
 
 
 class Config(BaseSettings):
@@ -10,7 +10,8 @@ class Config(BaseSettings):
     bucket_name: str
     google_application_credentials: str | None
 
-    model_config = SettingsConfigDict(env_file=".env")
+    class Config:
+        env_file = ".env"  # Optional, for local development
 
 
 config = Config()
