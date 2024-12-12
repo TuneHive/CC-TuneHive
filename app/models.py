@@ -96,15 +96,10 @@ class Songs(SQLModel, table=True):
     name: str
     singer_id: int = Field(foreign_key="users.id")
     album_id: int | None = Field(default=None, foreign_key="albums.id")
+    ml_id: str | None = None
     like_count: int = Field(default=0)
     popularity: float
     genre: str
-    danceability: float
-    loudness: float
-    acousticness: float
-    instrumentalness: float
-    tempo: float
-    key: str
     duration: int
     cover: str
     cover_url: str

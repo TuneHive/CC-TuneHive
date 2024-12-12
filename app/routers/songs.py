@@ -21,12 +21,6 @@ class SongCreate(SQLModel):
     album_id: int | None = None
     popularity: float
     genre: str
-    danceability: float
-    loudness: float
-    acousticness: float
-    instrumentalness: float
-    tempo: float
-    key: str
     duration: int
     cover: str
     cover_url: str
@@ -171,13 +165,7 @@ async def create_song(
             singer_id=current_user.id,
             popularity=0,
             genre=genre,
-            danceability=0,
-            loudness=0,
-            acousticness=0,
-            instrumentalness=0,
-            tempo=0,
-            key="",
-            duration=0,
+            duration=0,  # TODO: tambah function untuk hitung duration
             cover=cover_blob_name,
             cover_url=cover_public_url,
             song=song_blob_name,
