@@ -5,13 +5,14 @@ from sqlmodel import SQLModel, Field, select
 
 from ..dependencies.db import SessionDep
 from ..dependencies.auth import pwd_context, CurrentUser
-from ..models import Users, Follows, Histories, Song_Likes, Songs
+from ..models import Users, Follows, Histories, Song_Likes, Songs, Post_Likes, Posts
 from ..response_models import (
     Response,
     DetailedUserPublic,
     UserPublic,
     SongPublic,
     HistoryPublic,
+    PostPublic,
 )
 from ..calculate_popularity import calculate_song_popularity
 
@@ -239,6 +240,29 @@ async def get_liked_songs(
     ).all()
     liked_songs = [song.song for song in result]
     return liked_songs
+
+
+@router.get("/{user_id}/liked_posts", response_model=list[PostPublic])
+async def get_liked_posts(
+    user_id: int,
+    session: SessionDep,
+    page: Annotated[int, Query(ge=1)] = 1,
+    itemPerPage: Annotated[int, Query(ge=10, le=30)] = 10,
+):
+    user = session.get(Users, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    offset = (page - 1) * itemPerPage
+    result = session.exec(
+        select(Post_Likes)
+        .join(Posts, Posts.id == Post_Likes.post_id)
+        .where(Posts.user_id == user_id)
+        .order_by(Posts.created_at.desc())
+        .offset(offset)
+        .limit(itemPerPage)
+    ).all()
+    liked_posts = [post.post for post in result]
+    return liked_posts
 
 
 @router.get("/{user_id}/history", response_model=list[HistoryPublic])

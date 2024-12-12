@@ -2,7 +2,7 @@ from fastapi import APIRouter, Body, HTTPException, Query
 from typing import Annotated
 from sqlmodel import SQLModel, select
 
-from ..models import Playlists, Playlist_Songs
+from ..models import Playlists, Playlist_Songs, Songs
 from ..dependencies.db import SessionDep
 from ..dependencies.auth import CurrentUser
 from ..response_models import PlaylistPublic, DetailedPlaylistPublic
@@ -106,6 +106,9 @@ async def add_song_to_playlist(
     playlist = session.get(Playlists, playlist_id)
     if not playlist:
         raise HTTPException(status_code=404, detail="Playlist not found")
+    song = session.get(Songs, song_id)
+    if not song:
+        raise HTTPException(status_code=404, detail="Song not found")
     if playlist.user_id != current_user.id:
         raise HTTPException(
             status_code=403, detail="Can not change other user's playlist"
@@ -140,7 +143,10 @@ async def remove_song_from_playlist(
 ):
     playlist = session.get(Playlists, playlist_id)
     if not playlist:
-        raise HTTPException(status_code=404, detail="Album not found")
+        raise HTTPException(status_code=404, detail="Playlist not found")
+    song = session.get(Songs, song_id)
+    if not song:
+        raise HTTPException(status_code=404, detail="Song not found")
     if playlist.user_id != current_user.id:
         raise HTTPException(
             status_code=403, detail="Can not remove song from other user's playlist"
