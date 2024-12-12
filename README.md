@@ -1,6 +1,6 @@
 # Tunehive API
 
-#### This API was created using FastAPI
+#### This API was created using Python FastAPI
 
 How to run:
 
