@@ -1,5 +1,14 @@
 from fastapi import FastAPI
-from .routers import auth, users, songs, playlists, albums, posts, comments
+from .routers import (
+    auth,
+    users,
+    songs,
+    playlists,
+    albums,
+    posts,
+    comments,
+    recommendations,
+)
 from .config import config
 import os
 
@@ -10,6 +19,7 @@ if config.google_application_credentials is not None:
 
 app.include_router(auth.router)
 app.include_router(users.router)
+app.include_router(recommendations.router)
 app.include_router(songs.router)
 app.include_router(playlists.router)
 app.include_router(albums.router)
