@@ -1,11 +1,11 @@
 # Tunehive API
 
-#### This API was created using Python FastAPI
+#### This API was created using FastAPI
 
 How to run:
 
-1. Install python
-2. Clone the repo
+1. Install Python v3.12+
+2. Clone the repository
 3. Create python virtual environment in the root folder by running this command:
 
 ```shell
@@ -21,11 +21,11 @@ source .venv/bin/activate
 5. Install FastAPI using this command:
 
 ```shell
-pip install "fastapi[standard]"
+pip install -r ./requirements.txt
 ```
 
 6. Run dev server using this command:
 
 ```shell
-fastapi run app/main.py
+fastapi dev app/main.py
 ```
