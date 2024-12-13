@@ -14,7 +14,7 @@ from ..response_models import (
     HistoryPublic,
     PostPublic,
 )
-from ..calculate_popularity import calculate_song_popularity
+from ..util_functions import calculate_song_popularity
 
 router = APIRouter(prefix="/users", tags=["users"])
 

@@ -10,7 +10,7 @@ from ..dependencies.db import SessionDep
 from ..dependencies.cloud_storage import BucketDep
 from ..bucket_functions import upload_file, delete_file
 from ..response_models import Response, AlbumPublic, UserPublic, SongPublic
-from ..calculate_popularity import calculate_song_popularity
+from ..util_functions import calculate_song_popularity, calculate_song_duration
 
 router = APIRouter(prefix="/songs", tags=["songs"])
 
@@ -160,12 +160,14 @@ async def create_song(
             bucket, current_user.id, cover, folder_cover
         )
 
+        duration = calculate_song_duration(song)
+
         song_data = SongCreate(
             name=name,
             singer_id=current_user.id,
             popularity=0,
             genre=genre,
-            duration=0,  # TODO: tambah function untuk hitung duration
+            duration=duration,
             cover=cover_blob_name,
             cover_url=cover_public_url,
             song=song_blob_name,

@@ -2,6 +2,8 @@ from .models import Songs, Song_Likes, Histories
 from sqlalchemy.sql import func
 from .dependencies.db import SessionDep
 from sqlmodel import select
+from fastapi import UploadFile
+from mutagen.mp3 import MP3
 
 
 def calculate_song_popularity(
@@ -40,3 +42,13 @@ def calculate_song_popularity(
     song.popularity = popularity
     session.add(song)
     session.commit()
+
+
+def calculate_song_duration(song: UploadFile):
+    # Read the file into memory
+    file = song.file
+
+    audio = MP3(file)
+    duration = int(round(audio.info.length))
+
+    return duration
